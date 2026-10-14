@@ -133,3 +133,59 @@ select {
         font-size: 25px;
     }
 }
+
+.task-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid #e0e4e9;
+    border-radius: 7px;
+    background-color: #ffffff;
+}
+
+.task-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.task-info input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.task-name {
+    overflow-wrap: anywhere;
+}
+
+.task-name.completed {
+    color: #8a929e;
+    text-decoration: line-through;
+}
+
+.task-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.button-danger {
+    color: #a52828;
+    background-color: #fce8e8;
+}
+
+.button-danger:hover {
+    background-color: #f7d4d4;
+}
+
+@media (max-width: 450px) {
+    .task-item {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

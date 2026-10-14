@@ -127,3 +127,100 @@ todoApp.append(
 
 page.append(header, todoApp);
 document.body.append(page);
+
+let tasks = [];
+let nextTaskId = 1;
+
+function createTaskElement(task) {
+    const item = document.createElement('li');
+    item.className = 'task-item';
+
+    const taskInfo = document.createElement('div');
+    taskInfo.className = 'task-info';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = task.completed;
+    checkbox.setAttribute(
+        'aria-label',
+        'Отметить задачу выполненной'
+    );
+
+    const taskName = document.createElement('span');
+    taskName.className = 'task-name';
+    taskName.textContent = task.title;
+
+    if (task.completed) {
+        taskName.classList.add('completed');
+    }
+
+    checkbox.addEventListener('change', function () {
+        task.completed = checkbox.checked;
+        renderTasks();
+    });
+
+    taskInfo.append(checkbox, taskName);
+
+    const taskActions = document.createElement('div');
+    taskActions.className = 'task-actions';
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'button button-danger';
+    deleteButton.textContent = 'Удалить';
+
+    deleteButton.addEventListener('click', function () {
+        tasks = tasks.filter(function (currentTask) {
+            return currentTask.id !== task.id;
+        });
+
+        renderTasks();
+    });
+
+    taskActions.append(deleteButton);
+
+    item.append(taskInfo, taskActions);
+
+    return item;
+}
+
+function renderTasks() {
+    taskList.replaceChildren();
+
+    if (tasks.length === 0) {
+        taskList.append(emptyMessage);
+    } else {
+        tasks.forEach(function (task) {
+            taskList.append(createTaskElement(task));
+        });
+    }
+
+    taskCounter.textContent = 'Всего задач: ' + tasks.length;
+}
+
+taskForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    const title = taskInput.value.trim();
+
+    if (title === '') {
+        return;
+    }
+
+    const task = {
+        id: nextTaskId,
+        title: title,
+        date: dateInput.value,
+        completed: false
+    };
+
+    nextTaskId += 1;
+    tasks.push(task);
+
+    taskForm.reset();
+    taskInput.focus();
+
+    renderTasks();
+});
+
+renderTasks();
