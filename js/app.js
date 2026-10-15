@@ -131,6 +131,7 @@ document.body.append(page);
 let tasks = [];
 let nextTaskId = 1;
 
+
 function createTaskElement(task) {
     const item = document.createElement('li');
     item.className = 'task-item';
@@ -146,6 +147,9 @@ function createTaskElement(task) {
         'Отметить задачу выполненной'
     );
 
+    const taskDetails = document.createElement('div');
+    taskDetails.className = 'task-details';
+
     const taskName = document.createElement('span');
     taskName.className = 'task-name';
     taskName.textContent = task.title;
@@ -154,15 +158,89 @@ function createTaskElement(task) {
         taskName.classList.add('completed');
     }
 
+    taskDetails.append(taskName);
+
+    if (task.date) {
+        const taskDate = document.createElement('span');
+        taskDate.className = 'task-date';
+        taskDate.textContent = 'Срок: ' + task.date;
+        taskDetails.append(taskDate);
+    }
+
     checkbox.addEventListener('change', function () {
         task.completed = checkbox.checked;
         renderTasks();
     });
 
-    taskInfo.append(checkbox, taskName);
+    taskInfo.append(checkbox, taskDetails);
 
     const taskActions = document.createElement('div');
     taskActions.className = 'task-actions';
+
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'button button-edit';
+    editButton.textContent = 'Изменить';
+
+    editButton.addEventListener('click', function () {
+        const editForm = document.createElement('form');
+        editForm.className = 'edit-form';
+
+        const editTitle = document.createElement('input');
+        editTitle.type = 'text';
+        editTitle.value = task.title;
+        editTitle.required = true;
+        editTitle.setAttribute('aria-label', 'Название задачи');
+
+        const editDate = document.createElement('input');
+        editDate.type = 'date';
+        editDate.value = task.date;
+        editDate.setAttribute('aria-label', 'Дата задачи');
+
+        const saveButton = document.createElement('button');
+        saveButton.type = 'submit';
+        saveButton.className = 'button button-primary';
+        saveButton.textContent = 'Сохранить';
+
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'button button-secondary';
+        cancelButton.textContent = 'Отмена';
+
+        editForm.append(
+            editTitle,
+            editDate,
+            saveButton,
+            cancelButton
+        );
+
+        editForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const newTitle = editTitle.value.trim();
+
+            if (newTitle === '') {
+                editTitle.setCustomValidity(
+                    'Введите название задачи'
+                );
+                editTitle.reportValidity();
+                editTitle.setCustomValidity('');
+                return;
+            }
+
+            task.title = newTitle;
+            task.date = editDate.value;
+
+            renderTasks();
+        });
+
+        cancelButton.addEventListener('click', function () {
+            renderTasks();
+        });
+
+        item.replaceChildren(editForm);
+        editTitle.focus();
+    });
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
@@ -177,8 +255,7 @@ function createTaskElement(task) {
         renderTasks();
     });
 
-    taskActions.append(deleteButton);
-
+    taskActions.append(editButton, deleteButton);
     item.append(taskInfo, taskActions);
 
     return item;
@@ -187,15 +264,75 @@ function createTaskElement(task) {
 function renderTasks() {
     taskList.replaceChildren();
 
-    if (tasks.length === 0) {
-        taskList.append(emptyMessage);
+    const searchText = searchInput.value.trim().toLowerCase();
+    const filterValue = filterSelect.value;
+    const sortValue = sortSelect.value;
+
+    let visibleTasks = tasks.filter(function (task) {
+        const matchesSearch = task.title
+            .toLowerCase()
+            .includes(searchText);
+
+        const matchesFilter =
+            filterValue === 'all' ||
+            (filterValue === 'active' && !task.completed) ||
+            (filterValue === 'completed' && task.completed);
+
+        return matchesSearch && matchesFilter;
+    });
+
+    if (sortValue === 'date-asc') {
+        visibleTasks.sort(function (a, b) {
+            if (!a.date) {
+                return 1;
+            }
+
+            if (!b.date) {
+                return -1;
+            }
+
+            return a.date.localeCompare(b.date);
+        });
+    }
+
+    if (sortValue === 'date-desc') {
+        visibleTasks.sort(function (a, b) {
+            if (!a.date) {
+                return 1;
+            }
+
+            if (!b.date) {
+                return -1;
+            }
+
+            return b.date.localeCompare(a.date);
+        });
+    }
+
+    if (visibleTasks.length === 0) {
+        const message = document.createElement('li');
+        message.className = 'empty-message';
+
+        if (tasks.length === 0) {
+            message.textContent = 'Пока задач нет. Добавь первую!';
+        } else {
+            message.textContent = 'Задачи не найдены.';
+        }
+
+        taskList.append(message);
     } else {
-        tasks.forEach(function (task) {
+        visibleTasks.forEach(function (task) {
             taskList.append(createTaskElement(task));
         });
     }
 
-    taskCounter.textContent = 'Всего задач: ' + tasks.length;
+    const completedCount = tasks.filter(function (task) {
+        return task.completed;
+    }).length;
+
+    taskCounter.textContent =
+        'Всего задач: ' + tasks.length +
+        ' • Выполнено: ' + completedCount;
 }
 
 taskForm.addEventListener('submit', function (event) {
@@ -224,3 +361,7 @@ taskForm.addEventListener('submit', function (event) {
 });
 
 renderTasks();
+
+searchInput.addEventListener('input', renderTasks);
+filterSelect.addEventListener('change', renderTasks);
+sortSelect.addEventListener('change', renderTasks);

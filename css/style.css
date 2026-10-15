@@ -189,3 +189,47 @@ select {
         flex-direction: column;
     }
 }
+
+
+.task-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.task-date {
+    color: #7b8490;
+    font-size: 12px;
+}
+
+.button-edit {
+    color: #2856a3;
+    background-color: #e7efff;
+}
+
+.button-edit:hover {
+    background-color: #d5e3ff;
+}
+
+.button-secondary {
+    color: #343b45;
+    background-color: #e9edf2;
+}
+
+.edit-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.edit-form input[type="text"] {
+    flex: 1;
+}
+
+@media (max-width: 500px) {
+    .edit-form {
+        flex-direction: column;
+    }
+}
