@@ -233,3 +233,16 @@ select {
         flex-direction: column;
     }
 }
+
+.task-item[draggable="true"] {
+    cursor: grab;
+}
+
+.task-item.dragging {
+    opacity: 0.45;
+}
+
+.task-item.drag-over {
+    border-color: #356ac3;
+    background-color: #f0f5ff;
+}

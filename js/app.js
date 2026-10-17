@@ -85,7 +85,7 @@ const sortSelect = document.createElement('select');
 sortSelect.setAttribute('aria-label', 'Сортировка задач');
 
 const sortOptions = [
-    { value: 'manual', text: 'Мой порядок' },
+    { value: 'manual', text: 'По добавлению' },
     { value: 'date-asc', text: 'Сначала ближайшие' },
     { value: 'date-desc', text: 'Сначала дальние' }
 ];
@@ -128,13 +128,58 @@ todoApp.append(
 page.append(header, todoApp);
 document.body.append(page);
 
-let tasks = [];
-let nextTaskId = 1;
 
+function loadTasks() {
+    try {
+        const savedTasks = localStorage.getItem('todoTasks');
+
+        if (savedTasks === null) {
+            return [];
+        }
+
+        const parsedTasks = JSON.parse(savedTasks);
+
+        if (!Array.isArray(parsedTasks)) {
+            return [];
+        }
+
+        return parsedTasks.filter(function (task) {
+            return (
+                task !== null &&
+                typeof task === 'object' &&
+                Number.isInteger(task.id) &&
+                typeof task.title === 'string' &&
+                typeof task.completed === 'boolean' &&
+                typeof task.date === 'string'
+            );
+        });
+    } catch (error) {
+        console.error('Не удалось загрузить задачи:', error);
+        return [];
+    }
+}
+
+function saveTasks() {
+    try {
+        localStorage.setItem('todoTasks', JSON.stringify(tasks));
+    } catch (error) {
+        console.error('Не удалось сохранить задачи:', error);
+    }
+}
+
+let tasks = loadTasks();
+
+let nextTaskId = tasks.reduce(function (maxId, task) {
+    return Math.max(maxId, task.id);
+}, 0) + 1;
 
 function createTaskElement(task) {
     const item = document.createElement('li');
     item.className = 'task-item';
+    item.dataset.taskId = String(task.id);
+    item.draggable = sortSelect.value === 'manual' &&
+        searchInput.value.trim() === '' &&
+        filterSelect.value === 'all';
 
     const taskInfo = document.createElement('div');
     taskInfo.className = 'task-info';
@@ -142,10 +187,7 @@ function createTaskElement(task) {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = task.completed;
-    checkbox.setAttribute(
-        'aria-label',
-        'Отметить задачу выполненной'
-    );
+    checkbox.setAttribute('aria-label', 'Отметить задачу выполненной');
 
     const taskDetails = document.createElement('div');
     taskDetails.className = 'task-details';
@@ -169,6 +211,7 @@ function createTaskElement(task) {
 
     checkbox.addEventListener('change', function () {
         task.completed = checkbox.checked;
+        saveTasks();
         renderTasks();
     });
 
@@ -181,6 +224,7 @@ function createTaskElement(task) {
     editButton.type = 'button';
     editButton.className = 'button button-edit';
     editButton.textContent = 'Изменить';
+    editButton.setAttribute('aria-label', 'Изменить задачу: ' + task.title);
 
     editButton.addEventListener('click', function () {
         const editForm = document.createElement('form');
@@ -190,6 +234,7 @@ function createTaskElement(task) {
         editTitle.type = 'text';
         editTitle.value = task.title;
         editTitle.required = true;
+        editTitle.maxLength = 200;
         editTitle.setAttribute('aria-label', 'Название задачи');
 
         const editDate = document.createElement('input');
@@ -207,12 +252,7 @@ function createTaskElement(task) {
         cancelButton.className = 'button button-secondary';
         cancelButton.textContent = 'Отмена';
 
-        editForm.append(
-            editTitle,
-            editDate,
-            saveButton,
-            cancelButton
-        );
+        editForm.append(editTitle, editDate, saveButton, cancelButton);
 
         editForm.addEventListener('submit', function (event) {
             event.preventDefault();
@@ -220,9 +260,7 @@ function createTaskElement(task) {
             const newTitle = editTitle.value.trim();
 
             if (newTitle === '') {
-                editTitle.setCustomValidity(
-                    'Введите название задачи'
-                );
+                editTitle.setCustomValidity('Введите название задачи');
                 editTitle.reportValidity();
                 editTitle.setCustomValidity('');
                 return;
@@ -230,13 +268,11 @@ function createTaskElement(task) {
 
             task.title = newTitle;
             task.date = editDate.value;
-
+            saveTasks();
             renderTasks();
         });
 
-        cancelButton.addEventListener('click', function () {
-            renderTasks();
-        });
+        cancelButton.addEventListener('click', renderTasks);
 
         item.replaceChildren(editForm);
         editTitle.focus();
@@ -246,17 +282,90 @@ function createTaskElement(task) {
     deleteButton.type = 'button';
     deleteButton.className = 'button button-danger';
     deleteButton.textContent = 'Удалить';
+    deleteButton.setAttribute('aria-label', 'Удалить задачу: ' + task.title);
 
     deleteButton.addEventListener('click', function () {
         tasks = tasks.filter(function (currentTask) {
             return currentTask.id !== task.id;
         });
 
+        saveTasks();
         renderTasks();
     });
 
     taskActions.append(editButton, deleteButton);
     item.append(taskInfo, taskActions);
+
+    item.addEventListener('dragstart', function (event) {
+        if (
+            sortSelect.value !== 'manual' ||
+            searchInput.value.trim() !== '' ||
+            filterSelect.value !== 'all'
+        ) {
+            event.preventDefault();
+            return;
+        }
+
+        event.dataTransfer.setData('text/plain', String(task.id));
+        event.dataTransfer.effectAllowed = 'move';
+        item.classList.add('dragging');
+    });
+
+    item.addEventListener('dragend', function () {
+        item.classList.remove('dragging');
+        taskList.querySelectorAll('.task-item').forEach(function (element) {
+            element.classList.remove('drag-over');
+        });
+    });
+
+    item.addEventListener('dragover', function (event) {
+        if (sortSelect.value !== 'manual') {
+            return;
+        }
+
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        item.classList.add('drag-over');
+    });
+
+    item.addEventListener('dragleave', function () {
+        item.classList.remove('drag-over');
+    });
+
+    item.addEventListener('drop', function (event) {
+        event.preventDefault();
+        item.classList.remove('drag-over');
+
+        if (
+            sortSelect.value !== 'manual' ||
+            searchInput.value.trim() !== '' ||
+            filterSelect.value !== 'all'
+        ) {
+            return;
+        }
+
+        const draggedId = Number(event.dataTransfer.getData('text/plain'));
+        const draggedIndex = tasks.findIndex(function (currentTask) {
+            return currentTask.id === draggedId;
+        });
+        const targetIndex = tasks.findIndex(function (currentTask) {
+            return currentTask.id === task.id;
+        });
+
+        if (
+            draggedIndex === -1 ||
+            targetIndex === -1 ||
+            draggedIndex === targetIndex
+        ) {
+            return;
+        }
+
+        const draggedTask = tasks.splice(draggedIndex, 1)[0];
+        tasks.splice(targetIndex, 0, draggedTask);
+
+        saveTasks();
+        renderTasks();
+    });
 
     return item;
 }
@@ -283,28 +392,16 @@ function renderTasks() {
 
     if (sortValue === 'date-asc') {
         visibleTasks.sort(function (a, b) {
-            if (!a.date) {
-                return 1;
-            }
-
-            if (!b.date) {
-                return -1;
-            }
-
+            if (!a.date) { return 1; }
+            if (!b.date) { return -1; }
             return a.date.localeCompare(b.date);
         });
     }
 
     if (sortValue === 'date-desc') {
         visibleTasks.sort(function (a, b) {
-            if (!a.date) {
-                return 1;
-            }
-
-            if (!b.date) {
-                return -1;
-            }
-
+            if (!a.date) { return 1; }
+            if (!b.date) { return -1; }
             return b.date.localeCompare(a.date);
         });
     }
